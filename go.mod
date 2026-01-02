@@ -40,7 +40,7 @@ require (
 	github.com/hdevalence/ed25519consensus v0.1.0
 	github.com/huandu/skiplist v1.2.0
 	github.com/improbable-eng/grpc-web v0.15.0
-	github.com/jhump/protoreflect v1.15.3
+	github.com/jhump/protoreflect v1.17.0
 	github.com/magiconair/properties v1.8.7
 	github.com/manifoldco/promptui v0.9.0
 	github.com/mattn/go-isatty v0.0.20
@@ -88,7 +88,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.9 // indirect
 	github.com/aws/smithy-go v1.23.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bufbuild/protocompile v0.6.0 // indirect
+	github.com/bufbuild/protocompile v0.14.1 // indirect
 	github.com/celestiaorg/go-square/v3 v3.0.2 // indirect
 	github.com/celestiaorg/nmt v0.24.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
