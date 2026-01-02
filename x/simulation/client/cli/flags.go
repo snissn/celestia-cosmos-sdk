@@ -50,7 +50,7 @@ func GetSimulatorFlags() {
 	flag.BoolVar(&FlagCommitValue, "Commit", false, "have the simulation commit")
 	flag.BoolVar(&FlagOnOperationValue, "SimulateEveryOperation", false, "run slow invariants every operation")
 	flag.BoolVar(&FlagAllInvariantsValue, "PrintAllInvariants", false, "print all invariants if a broken invariant is found")
-	flag.StringVar(&FlagDBBackendValue, "DBBackend", "goleveldb", "custom db backend type")
+	flag.StringVar(&FlagDBBackendValue, "DBBackend", "goleveldb", "custom db backend type: goleveldb, pebbledb, treedb, memdb")
 
 	// simulation flags
 	flag.BoolVar(&FlagEnabledValue, "Enabled", false, "enable the simulation")
