@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -60,6 +61,8 @@ const (
 	flagTransport          = "transport"
 	flagTraceStore         = "trace-store"
 	flagCPUProfile         = "cpu-profile"
+	flagBlockProfileRate   = "block-profile-rate"
+	flagMutexProfileFrac   = "mutex-profile-fraction"
 	FlagMinGasPrices       = "minimum-gas-prices"
 	FlagQueryGasLimit      = "query-gas-limit"
 	FlagHaltHeight         = "halt-height"
@@ -166,7 +169,8 @@ node will attempt to gracefully shutdown and the block will not be committed. In
 will not be able to commit subsequent blocks.
 
 For profiling and benchmarking purposes, CPU profiling can be enabled via the '--cpu-profile' flag
-which accepts a path for the resulting pprof file.
+which accepts a path for the resulting pprof file. Runtime block and mutex profiling can be enabled
+via the '--block-profile-rate' and '--mutex-profile-fraction' flags; both default to 0.
 
 The node may be started in a 'query only' mode where only the gRPC and JSON HTTP
 API services are enabled via the 'grpc-only' flag. In this mode, CometBFT is
@@ -566,12 +570,19 @@ func startTelemetry(cfg serverconfig.Config) (*telemetry.Metrics, error) {
 	return telemetry.New(cfg.Telemetry)
 }
 
-// wrapCPUProfile starts CPU profiling, if enabled, and executes the provided
-// callbackFn in a separate goroutine, then will wait for that callback to
-// return.
+var (
+	setBlockProfileRate     = runtime.SetBlockProfileRate
+	setMutexProfileFraction = runtime.SetMutexProfileFraction
+)
+
+// wrapCPUProfile starts CPU profiling and runtime block/mutex profiling, if
+// enabled, and executes the provided callbackFn.
 //
 // NOTE: We expect the caller to handle graceful shutdown and signal handling.
 func wrapCPUProfile(svrCtx *Context, callbackFn func() error) error {
+	cleanupRuntimeProfiling := applyRuntimeProfiling(svrCtx)
+	defer cleanupRuntimeProfiling()
+
 	if cpuProfile := svrCtx.Viper.GetString(flagCPUProfile); cpuProfile != "" {
 		f, err := os.Create(cpuProfile)
 		if err != nil {
@@ -595,6 +606,33 @@ func wrapCPUProfile(svrCtx *Context, callbackFn func() error) error {
 	}
 
 	return callbackFn()
+}
+
+func applyRuntimeProfiling(svrCtx *Context) func() {
+	blockProfileRate := svrCtx.Viper.GetInt(flagBlockProfileRate)
+	if blockProfileRate > 0 {
+		svrCtx.Logger.Info("starting block profiler", "rate", blockProfileRate)
+		setBlockProfileRate(blockProfileRate)
+	}
+
+	mutexProfileFraction := svrCtx.Viper.GetInt(flagMutexProfileFrac)
+	previousMutexProfileFraction := 0
+	if mutexProfileFraction > 0 {
+		svrCtx.Logger.Info("starting mutex profiler", "fraction", mutexProfileFraction)
+		previousMutexProfileFraction = setMutexProfileFraction(mutexProfileFraction)
+	}
+
+	return func() {
+		if blockProfileRate > 0 {
+			svrCtx.Logger.Info("stopping block profiler", "rate", blockProfileRate)
+			setBlockProfileRate(0)
+		}
+
+		if mutexProfileFraction > 0 {
+			svrCtx.Logger.Info("stopping mutex profiler", "fraction", mutexProfileFraction)
+			setMutexProfileFraction(previousMutexProfileFraction)
+		}
+	}
 }
 
 // emitServerInfoMetrics emits server info related metrics using application telemetry.
@@ -1000,6 +1038,8 @@ func addStartNodeFlags(cmd *cobra.Command, opts StartCmdOptions) {
 	cmd.Flags().Uint64(FlagHaltTime, 0, "Minimum block time (in Unix seconds) at which to gracefully halt the chain and shutdown the node")
 	cmd.Flags().Bool(FlagInterBlockCache, true, "Enable inter-block caching")
 	cmd.Flags().String(flagCPUProfile, "", "Enable CPU profiling and write to the provided file")
+	cmd.Flags().Int(flagBlockProfileRate, 0, "Enable runtime block profiling with the provided sampling rate")
+	cmd.Flags().Int(flagMutexProfileFrac, 0, "Enable runtime mutex profiling with the provided sampling fraction")
 	cmd.Flags().Bool(FlagTrace, false, "Provide full stack traces for errors in ABCI Log")
 	cmd.Flags().String(FlagPruning, pruningtypes.PruningOptionDefault, "Pruning strategy (default|nothing|everything|custom)")
 	cmd.Flags().Uint64(FlagPruningKeepRecent, 0, "Number of recent heights to keep on disk (ignored if pruning is not 'custom')")
